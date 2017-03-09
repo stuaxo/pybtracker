@@ -105,6 +105,49 @@ class UdpTrackerServerProto(asyncio.Protocol):
                 '!IIIII',
                 1, tid, self.server.interval, leechers, seeders) + peers
 
+    def process_scrape(self, addr, connid, tid, data):
+        # for hash in hashes:
+        #     seeds = struct.unpack_from("!i", buf, offset)[0]
+        #     offset += 4
+        #     complete = struct.unpack_from("!i", buf, offset)[0]
+        #     offset += 4
+        #     leeches = struct.unpack_from("!i", buf, offset)[0]
+        #     offset += 4
+        # ret[hash] = {"seeds": seeds, "peers": leeches, "complete": complete}
+        if len(data > 74 * 16):
+            # Maximum torrents allowed to scrape is 74
+            return
+
+        seeders = []
+        # TODO, currently seeders and complete are the same
+        leechers = []
+
+        for idx in range(0, len(data), 20):
+            ih = struct.unpack('', data[idx:idx+20])
+
+            # get all peers for this torrent
+            all_peers = self.server.torrents.get(ih, {}).values()
+
+            # count all peers that have announced "completed". these
+            # are the seeders. the rest are leechers.
+            seeders.append(sum(1 for _, _, _, _, _, completed in all_peers
+                          if completed))
+            leechers.append(len(all_peers) - seeders)
+
+        complete = seeders # TODO, currently seeders and complete are the same
+
+        result = ''
+        for amt in seeders:
+            result += struct.pack('!I', amt)
+
+        for amt in complete:
+            result += struct.pack('!I', amt)
+
+        for amt in leechers:
+            result += struct.pack('!I', amt)
+
+        return result
+
     def connection_made(self, transport):
         self.transport = transport
 
@@ -119,7 +162,8 @@ class UdpTrackerServerProto(asyncio.Protocol):
         connid, action, tid = struct.unpack('!QII', data[:16])
         resp = {
             0: self.process_connect,
-            1: self.process_announce
+            1: self.process_announce,
+            2: self.process_scrape,
         }.get(action, lambda a, c, t, d: None)(addr, connid,
                                                tid, data[16:])
 
