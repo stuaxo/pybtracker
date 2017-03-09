@@ -106,14 +106,6 @@ class UdpTrackerServerProto(asyncio.Protocol):
                 1, tid, self.server.interval, leechers, seeders) + peers
 
     def process_scrape(self, addr, connid, tid, data):
-        # for hash in hashes:
-        #     seeds = struct.unpack_from("!i", buf, offset)[0]
-        #     offset += 4
-        #     complete = struct.unpack_from("!i", buf, offset)[0]
-        #     offset += 4
-        #     leeches = struct.unpack_from("!i", buf, offset)[0]
-        #     offset += 4
-        # ret[hash] = {"seeds": seeds, "peers": leeches, "complete": complete}
         if len(data > 74 * 16):
             # Maximum torrents allowed to scrape is 74
             return
